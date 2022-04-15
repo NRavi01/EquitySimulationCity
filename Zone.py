@@ -1,5 +1,5 @@
 from shapely.geometry import Polygon, Point
-
+import geopandas
 
 class Zone():
     # popdensity is population per acres
@@ -16,19 +16,27 @@ class Zone():
         self.zone = Polygon(self.boundaries)
         self.equity_indicator = 0
         self.accessibility_indicator = 0
+        self.num_households = 0
 
     #compare with other zones to see initial equity measurements
     def __lt__(self, other):
-        return self.employment < other.employment
+        return self.equity_indicator < other.equity_indicator
 
     def getEmployment(self):
         return self.employment
-    
+    def getPop(self):
+        return self.pop_density
+    def incrementHouse(self):
+        self.num_households += 1
     def getArea(self):
         return self.zone.area
     def isIn(self, coordx, coordy):
         location = Point((coordx, coordy))
         return self.zone.contains(location)
+    def getPolygon(self):
+        return self.zone
+    def setEquity(self, equity_value):
+        self.equity_indicator = equity_value
 
 
 #sample TAZ creation
