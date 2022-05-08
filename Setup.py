@@ -3,13 +3,14 @@ from Grocery import Grocery
 from Hospital import Hospital
 from Street import Street
 from shapely.geometry import Polygon, Point
+import geopandas
+
 class Setup():
     zones = []
     grocery_stores = []
     hospitals = []
     streets = []
     def __init__(self, TAZShapefile, HospitalShapefile, GroceryShapefile, StreetShapefile) -> None:
-        print("hello")
         self.TAZShapes = TAZShapefile
         self.HospitalShapes = HospitalShapefile
         self.GroceryShapes = GroceryShapefile
@@ -66,23 +67,21 @@ class Setup():
         size_weightage = 0.1
 
         for zone in self.zones:
-            print(zone.getEmployment())
-
             zonep = geopandas.GeoSeries(zone.getPolygon())
             distance_list = []
             total_distance = 0
             for hospital in self.hospitals:
                 hospital_location = geopandas.GeoSeries([Point(hospital.getLocation())])
-                distance = zonep.distance(hospital_location) / distance_factor
+                distance = zonep.distance(hospital_location)[0] / distance_factor
                 total_distance += distance
-            distance_list.append[total_distance]
+            distance_list.append(total_distance)
             total_distance = 0
 
             for grocery in self.grocery_stores:
                 grocery_location = geopandas.GeoSeries([Point(grocery.getLocation())])
-                distance = zonep.distance(grocery_location) / distance_factor
+                distance = zonep.distance(grocery_location)[0] / distance_factor
                 total_distance += distance
-            distance_list.append[total_distance]
+            distance_list.append(total_distance)
             total_distance = 0
 
             zone_metric = distance_list[0] * hospital_weightage + distance_list[1] * grocery_weightage + \
@@ -90,8 +89,8 @@ class Setup():
                     zone.getArea() * size_weightage
             zone.setEquity(zone_metric)
         
-        self.zones.sort()
         #Zones now sorted by current equity measurement
+        self.zones.sort()
 
 
 
