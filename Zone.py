@@ -8,12 +8,12 @@ class Zone():
     # boundaries are most critical aspect
     # Boundaries will be a list of points shaping the zone
     # Example: boundaries = [(0, 0), (4, 4), (5, 0), (6, 8)]]
+    # Boundaries will be represented as a Polygon and passed in as params[3]
     def __init__(self, params) -> None:
         self.name = params[0]
         self.pop_density = params[1]
         self.employment = params[2]
-        self.boundaries = params[3]
-        self.zone = Polygon(self.boundaries)
+        self.zone = params[3]
         self.equity_indicator = 0
         self.accessibility_indicator = 0
         self.num_households = 0

@@ -1,6 +1,7 @@
 import math
 class Street():
-    #Start and end of street
+    # Start and end of street
+    # TODO: Update street to hold the LINESTRING Z datastructure rather than 2 coords
     def __init__(self, params) -> None:
         coord1 = params[0]
         coord2 = params[1]

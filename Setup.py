@@ -29,38 +29,54 @@ class Setup():
 
 
     def processTAZ(self, Shapefilezones):
-        #Insert Yash code for extracting data from shapefiles GQIS
-        #For now, put placeholder values
-        Shapefilezones = [["TAZ1", 4, 600, ((0, 0), (5, 0), (9, 4), (4, 4))], ["TAZ2", 2, 400, ((0, 7), (5, 14), (9, 12), (4, 4))]]
-        for zone in Shapefilezones:
+        zone_data = []
+        if Shapefilezones is None:
+            zone_data = [["TAZ1", 4, 600, Polygon(((0, 0), (5, 0), (9, 4), (4, 4)))], ["TAZ2", 2, 400, Polygon(((0, 7), (5, 14), (9, 12), (4, 4)))]]
+        else:
+            for zone in Shapefilezones.iterrows():
+                zone_data.append([zone[1].get("TAZ"), zone[1].get("POP_2018"), zone[1].get("EMPL_2018"), zone[1].get("geometry")])
+
+        for zone in zone_data:
             self.zones.append(Zone(zone))
-    def processHospitals(self, hospitalData):
-        #Insert Yash code for extracting data from shapefiles GQIS
-        #For now, put placeholder value
-        hospitalData = [[(4, 6), "Atrium Health"], [(8, 4), "Novant Health Center"]]
+
+    def processHospitals(self, hospitalShapes):
+        hospitalData = []
+        if hospitalShapes is None:
+            hospitalData = [[(4, 6), "Atrium Health"], [(8, 4), "Novant Health Center"]]
+        else:
+            for hospital in hospitalShapes.iterrows():
+                hospitalData.append([(hospital[1].get("geometry").x, hospital[1].get("geometry").y), hospital[1].get("Type")])
+        
         for hospital in hospitalData:
             self.hospitals.append(Hospital(hospital))
-    def processGrocery(self, groceryData):
-        #Insert Yash code for extracting data from shapefiles GQIS
-        #For now, put placeholder value
-        groceryData = [[(3, 2), "Publix"], [(4, 12), "Whole Foods Market"]]
+
+    def processGrocery(self, groceryShapes):
+        groceryData = []
+        if groceryShapes is None:
+            groceryData = [[(3, 2), "Publix"], [(4, 12), "Whole Foods Market"]]
+        else:
+            for grocery_store in groceryShapes.iterrows():
+                groceryData.append([(grocery_store[1].get("geometry").x, grocery_store[1].get("geometry").y), grocery_store[1].get("Type")])
+
         for grocery in groceryData:
             self.grocery_stores.append(Grocery(grocery))
+        
+    # TODO: Add code to parse street shapefiles (streets are in a "LINESTRING Z" datastructure)
     def processStreet(self, streetsData):
-        #Insert Yash code for extracting data from shapefiles GQIS
-        #For now, put placeholder value
-        streetsData = [[(3, 2), (8, 11)], [(4, 12), (6, 8)], [(6, 6), (9, 4)]]
+        if streetsData is None:
+            streetsData = [[(3, 2), (8, 11)], [(4, 12), (6, 8)], [(6, 6), (9, 4)]]
+
         for street in streetsData:
             self.streets.append(Street(street))
     
     def calculateZoneMetrics(self):
         
-        #Generic distance factor yet to be turned depending on how large the values for coordinates are
+        # TODO: Generic distance factor yet to be turned depending on how large the values for coordinates are
         distance_factor = 100
 
         hospital_weightage = 0.2
         grocery_weightage = 0.1
-        ##Fire not implemented yet
+        # TODO: Fire not implemented yet
         fire_weightage = 0.1
         employment_weightage = 0.25
         population_weightage = 0.25
@@ -89,20 +105,21 @@ class Setup():
                     zone.getArea() * size_weightage
             zone.setEquity(zone_metric)
         
-        #Zones now sorted by current equity measurement
+        # Zones now sorted by current equity measurement
         self.zones.sort()
 
 
-
+    # TODO: implement distributeHospitals
     def distributeHospitals(self, num_hospitals):
-        ### yet to be implemented
         return True
 
-    ###def distributeGroceries(self, num_groceries):
+    # TODO: implement distributeGroceries
+    def distributeGroceries(self, num_groceries):
+        pass
 
     
     def distributeHouseholds(self, num_households):
-        #Max new household per zone
+        # Max new household per zone
         max_household = 20
 
         households_left = num_households
@@ -112,10 +129,3 @@ class Setup():
             while added <= max_household and households_left > 0:
                 zone.incrementHouse()
                 households_left -= 1
-
-
-                
-        
-            
-setup = Setup(10, 10, 10, 10)
-setup.run()
