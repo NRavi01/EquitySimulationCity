@@ -22,10 +22,17 @@ class Zone():
         self.fire_access = 0
         self.accessibility_indicator = 0
         self.num_households = 0
+        self.streetsThrough = []
+        self.streetsLength = 0
+        self.connectivity = 0
 
     # compare with other zones to see initial equity measurements
     def __lt__(self, other):
         return self.equity_indicator < other.equity_indicator
+
+    def setStreetsThrough(self, routeName):
+        self.streetsThrough.append(routeName)
+        self.streetsLength += 1
 
     def getEmployment(self):
         return self.employment
@@ -45,6 +52,9 @@ class Zone():
 
     def getPolygon(self):
         return self.zone
+
+    def addConnectivity(self, value1):
+        self.connectivity += value1
 
     def setEquity(self, equity_value):
         self.equity_indicator = equity_value

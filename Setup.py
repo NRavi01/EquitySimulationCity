@@ -30,16 +30,20 @@ class Setup:
         print("NEW HOSPITAL LOCATIONS AS FOLLOWS:")
         self.distributeHospitals(3)
         print("NEW GROCERY LOCATIONS AS FOLLOWS:")
-        self.distributeGroceries(5)
+        self.distributeGroceries(3)
         print("NOW DISTRIBUTING HOUSEHOLDS")
-        self.distributeHouseholds(1000)
+        self.distributeHouseholds(8600)
+        print("NOW DISTRIBUTING FIRE STATION")
+        self.distributeFire(1)
+        self.calculateStreetsAcross()
+        self.calculateSuggestedStreets()
 
     def process(self):
         self.processTAZ(self.TAZShapes)
         self.processHospitals(self.HospitalShapes)
         self.processGrocery(self.GroceryShapes)
-        # self.processStreet(self.StreetShapes)
-        # self.processFire(self.FireShapes)
+        self.processStreet(self.StreetShapes)
+        self.processFire(self.FireShapes)
 
     def processTAZ(self, Shapefilezones):
         zone_data = []
@@ -85,8 +89,8 @@ class Setup:
             fireData = [[(3, 2), "Fire1"], [(4, 12), "Fire"]]
         else:
             for fire_station in fireShapes.iterrows():
-                fireData.append([(fireData[1].get("geometry").x, fireData[1].get(
-                    "geometry").y), fireData[1].get("Type")])
+                fireData.append([(fire_station[1].get("geometry").x, fire_station[1].get(
+                    "geometry").y), fire_station[1].get("Type")])
 
         for fire in fireData:
             self.fire_stores.append(Fire(fire))
@@ -96,10 +100,57 @@ class Setup:
         if streetsData is None:
             streetsData = [[(3, 2), (8, 11)], [
                 (4, 12), (6, 8)], [(6, 6), (9, 4)]]
-        print(type(streetsData))
-        for street in streetsData:
-            print(type(street))
+        for street in streetsData.values:
             self.streets.append(Street(street))
+
+    def calculateStreetsAcross(self):
+        for street in self.streets:
+            linestring = street.getLinestring()
+            for zone in self.zones:
+                # Add street to zone's through parameter if it passes through that zones
+                if zone.getPolygon().intersects(linestring):
+                    zone.setStreetsThrough(street)
+                    street.addZone()
+                    street.addSampleZone(zone.getName())
+
+    def calculateSuggestedStreets(self):
+        street_sorted = sorted(
+            self.zones, key=operator.attrgetter('streetsLength'))
+        for zone in street_sorted:
+
+            if(zone.streetsLength == 0):
+                zone.addConnectivity(0)
+            else:
+                for street in zone.streetsThrough:
+                    zone.addConnectivity(street.numZones)
+        # Now calculate where roads from each zone should go. Try to connect zones to other zones which are not currently connected
+
+        print("CURRENT ZONE CONNECTIVITY THROUGH ROADS BELOW")
+        for zone in self.zones:
+            routes = ''
+            for street in zone.streetsThrough:
+                routes += (str(street.getName()) + ' and ')
+            if routes == '':
+                routes = 'no major routes and '
+
+            print("ZONE " + str(zone.getName()) + " contains " + routes +
+                  "has an initial connectivity of " + str(zone.connectivity))
+            # Calculate which streets are not included all we need to do is link this zone with one zone in the path of these streets
+            suggestion = ''
+            for street in self.streets:
+                if street not in zone.streetsThrough:
+                    suggestion += ('We suggest connecting Zone ' + str(zone.getName()) + ' with Route ' +
+                                   str(street.getName(
+                                   )) + ' by adding a roadway from this zone to zone ' + str(street.getSample()) + '. ')
+
+                    zone.addConnectivity(street.numZones * .5)
+            if suggestion == '':
+                suggestion = 'Zone ' + \
+                    str(zone.getName()) + \
+                    ' has good connectivity no immediate roadways necessary'
+            print(suggestion)
+            print("ZONE " + str(zone.getName()) +
+                  " new connectivity with these roadways is now " + str(zone.connectivity))
 
     def calculateZoneMetrics(self):
 
@@ -187,6 +238,22 @@ class Setup:
             hospital_metric = total_distance * hospital_weightage
             zone.setHospital(hospital_metric)
 
+    def recalculateFireEquity(self):
+        distance_factor = 100
+        fire_weightage = 0.2
+        for zone in self.zones:
+            zonep = geopandas.GeoSeries(zone.getPolygon())
+            distance_list = []
+            total_distance = 0
+            for fire in self.fire_stores:
+                fire_location = fire.getLocation()
+                center = zonep.centroid
+                distance = math.sqrt(math.pow((fire_location[0] - center.x), 2) +
+                                     math.pow((fire_location[1] - center.y), 2)) / distance_factor
+                total_distance += distance
+            fire_metric = total_distance * fire_weightage
+            zone.setFire(fire_metric)
+
     def recalculateGroceryEquity(self):
         distance_factor = 100
         grocery_weightage = 0.2
@@ -201,7 +268,7 @@ class Setup:
                                      math.pow((grocery_location[1] - center.y), 2)) / distance_factor
                 total_distance += distance
             grocery_metric = total_distance * grocery_weightage
-            zone.setHospital(grocery_metric)
+            zone.setGrocery(grocery_metric)
 
     # TODO: implement distributeHospitals
     def distributeHospitals(self, num_hospitals=5):
@@ -214,14 +281,15 @@ class Setup:
             if zone.getName() not in zones_added:
                 zones_added.append(zone.getName())
                 location = zone.getPolygon().centroid
-                print("DONE")
-                print("Zone in: " + str(zone.getName()))
+                print("Zone in: " + str(zone.getName()) +
+                      " which had previous hospital equity index of " + str(zone.hospital_access))
                 print("Coordinates are : " +
                       str(location.x) + " , " + str(location.y))
-                print("DONE")
                 self.hospitals.append(
                     Hospital(((location.x, location.x), "new Hospital")))
                 self.recalculateHospitalEquity()
+                print("Zone " + str(zone.getName()) +
+                      " now has hospital equity index of " + str(zone.hospital_access))
 
             else:
                 i = 0
@@ -232,14 +300,15 @@ class Setup:
                 zones_added.append(next_zone.getName())
                 location = next_zone.getPolygon().centroid
                 random = self.add_random_point(zone.getPolygon())
-                print("DONE")
-                print("Zone in: " + str(next_zone.getName()))
+                print("Zone in: " + str(next_zone.getName()) +
+                      " which had previous hospital equity index of " + str(zone.hospital_access))
                 print("Coordinates are : " +
                       str(location.x) + " , " + str(location.y))
-                print("DONE")
                 self.hospitals.append(
                     Hospital(((random[0], random[1]), "new Hospital")))
                 self.recalculateHospitalEquity()
+                print("Zone " + str(zone.getName()) +
+                      " now has hospital equity index of " + str(zone.hospital_access))
             hospital_sorted = sorted(
                 self.zones, key=operator.attrgetter('hospital_access'), reverse=True)
             hospitals_left -= 1
@@ -255,14 +324,15 @@ class Setup:
             if zone.getName() not in zones_added:
                 zones_added.append(zone.getName())
                 location = zone.getPolygon().centroid
-                print("DONE")
-                print("Zone in: " + str(zone.getName()))
+                print("Zone in: " + str(zone.getName()) +
+                      " which had previous grocery equity index of " + str(zone.grocery_access))
                 print("Coordinates are : " +
                       str(location.x) + " , " + str(location.y))
-                print("DONE")
                 self.grocery_stores.append(
                     Grocery(((location.x, location.x), "new Grocery")))
                 self.recalculateGroceryEquity()
+                print("Zone " + str(zone.getName()) +
+                      " now has grocery equity index of " + str(zone.grocery_access))
 
             else:
                 i = 0
@@ -273,14 +343,15 @@ class Setup:
                 zones_added.append(next_zone.getName())
                 location = next_zone.getPolygon().centroid
                 random = self.add_random_point(zone.getPolygon())
-                print("DONE")
-                print("Zone in: " + str(next_zone.getName()))
+                print("Zone in: " + str(next_zone.getName()) +
+                      " which had previous grocery equity index of " + str(zone.grocery_access))
                 print("Coordinates are : " +
                       str(location.x) + " , " + str(location.y))
-                print("DONE")
                 self.grocery_stores.append(
                     Grocery(((location.x, location.x), "new Grocery")))
                 self.recalculateGroceryEquity()
+                print("Zone " + str(zone.getName()) +
+                      " now has grocery equity index of " + str(zone.grocery_access))
             groceries_sorted = sorted(
                 self.zones, key=operator.attrgetter('grocery_access'), reverse=True)
             groceries_left -= 1
@@ -289,24 +360,38 @@ class Setup:
         fire_sorted = sorted(
             self.zones, key=operator.attrgetter('fire_access'))
         zone_to_add = fire_sorted[0]
-        location = zone_to_add.centroid
-        self.fire_stores.append(Fire((location, "New Fire")))
+        location = zone_to_add.getPolygon().centroid
+        self.fire_stores.append(
+            Fire(((location.x, location.y), "New Fire")))
+        print("Zone in: " + str(zone_to_add.getName()) +
+              " which had previous fire equity index of " + str(zone_to_add.fire_access))
+        print("Coordinates are : " + str(location.x) + " , " + str(location.y))
+        self.recalculateFireEquity()
+        print("Zone " + str(zone_to_add.getName()) +
+              " now has fire equity index of " + str(zone_to_add.fire_access))
         return location
 
     def distributeHouseholds(self, num_households):
         # Max new household per zone
-        max_household = 20
-        list_zones = []
+
         households_left = num_households
+        total_equity = 0
+        for zone in self.zones:
+            total_equity += zone.equity_indicator
         zone_sorted = sorted(
             self.zones, key=operator.attrgetter('equity_indicator'), reverse=True)
+        print(total_equity)
         for zone in zone_sorted:
-            added = 0
-            while added <= max_household and households_left > 0:
+            fraction = zone.equity_indicator / total_equity
+            num_adding = round(fraction * num_households)
+            while num_adding > 0 and households_left > 0:
                 zone.incrementHouse()
-                list_zones.append(zone)
                 households_left -= 1
-            print("20 Households Recommended in Zone :" + str(zone.getName()))
+                num_adding -= 1
+            print(str(round(fraction * num_households)) +
+                  " Households Recommended in Zone " + str(zone.getName()) + " which has equity index of " + str(zone.equity_indicator))
+
+        print(len(self.zones))
 
 
 zones = geopandas.read_file(
@@ -320,7 +405,6 @@ fire = geopandas.read_file("zip://./data/Fire_EMS.zip!Fire_EMS")
 greenway = geopandas.read_file(
     "zip://./data/Greenways.zip!Greenways")
 
-print(greenway.head)
 # print(roadway.head)
 s = Setup(zones, hospitals, grocery_stores, streets, fire)
-# s.run()
+s.run()
